@@ -1,2 +1,10 @@
 .venv/
 venv/
+.DS_Store
+api/.env
+api/__pycache__/config.cpython-312.pyc
+api/__pycache__/nfc_reader.cpython-312.pyc
+api/__pycache__/supabase_client.cpython-312.pyc
+api/__pycache__/umbrella_service.cpython-312.pyc
+api/__pycache__/websocket_handler.cpython-312.pyc
+/node_modules
