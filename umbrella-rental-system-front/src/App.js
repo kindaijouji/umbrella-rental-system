@@ -4,6 +4,7 @@ import Home from './pages/Home';
 import NFCReader from './pages/NFCReader';
 import BorrowPage from './pages/BorrowPage';
 import ReturnPage from './pages/ReturnPage';
+import ErrorPage from './pages/ErrorPage';  // 新しく追加したエラーページ
 import { StudentProvider } from './context/StudentContext';
 
 const App = () => {
@@ -15,6 +16,7 @@ const App = () => {
           <Route path="/reader/:action" element={<NFCReader />} />
           <Route path="/borrow" element={<BorrowPage />} />
           <Route path="/return" element={<ReturnPage />} />
+          <Route path="/error" element={<ErrorPage />} />  {/* エラーページのルート */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
