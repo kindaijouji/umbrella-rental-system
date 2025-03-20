@@ -61,6 +61,13 @@ class NFCReader:
             return {'status': 'stopping'}
         return {'status': 'not_running'}
     
+    def restart_reader(self):
+        """NFCリーダーを再起動"""
+        self.stop_reader()
+        # 少し待機してリソースが完全に解放されるのを待つ
+        time.sleep(1)
+        return self.start_reader()
+    
     def stop_processing(self):
         """処理を停止"""
         if self.processing_active:
@@ -287,8 +294,19 @@ class NFCReader:
                         self._emit_processing_update('completed', 100, result['message'], process_result)
                 else:
                     # 学籍番号が取得できなかった場合の処理
+                    time.sleep(0.5)
+                    error_message = '学籍番号を読み取れませんでした。リーダーを再起動します。'
+                    self._emit_processing_update('error', 0, error_message, {
+                        'require_restart': True,
+                        'error_type': 'student_id_not_found'
+                    })
+                    
+                    # 処理が完了した後、リーダーを再起動する通知を送信
                     time.sleep(1)
-                    self._emit_processing_update('error', 0, '学籍番号を読み取れませんでした。もう一度お試しください。')
+                    self.socketio.emit('nfc_reader_restart_required', {
+                        'message': 'リーダーを再起動します',
+                        'reason': 'student_id_not_found'
+                    })
             
             except Exception as e:
                 print(f"処理エラー: {e}")

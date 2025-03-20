@@ -72,6 +72,25 @@ def set_nfc_action():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/nfc/restart', methods=['POST'])
+def restart_nfc_reader():
+    """NFCリーダーを再起動"""
+    result = nfc_reader.restart_reader()
+    return jsonify(result)
+
+# WebSocketイベントハンドラの追加
+@socketio.on('request_nfc_restart')
+def handle_nfc_restart_request(data):
+    """クライアントからのNFCリーダー再起動リクエストを処理"""
+    reason = data.get('reason', 'client_request')
+    print(f"NFCリーダー再起動リクエスト受信: {reason}")
+    
+    # リーダーを再起動
+    result = nfc_reader.restart_reader()
+    
+    # 再起動の結果をクライアントに通知
+    return {'status': result['status'], 'message': 'NFCリーダーを再起動しました'}
+
 # 傘管理 APIエンドポイント
 
 @app.route('/api/umbrella/status/<student_id>', methods=['GET'])
