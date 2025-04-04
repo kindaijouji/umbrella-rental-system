@@ -174,7 +174,7 @@ const NFCReader = () => {
         })
         .catch(err => {
             console.error('リーダー停止エラー:', err);
-            setError('リーダーの再起動に失敗しました');
+            setError('リーダーの再起動に失敗しました。初めからやり直してください。')
         });
     }, [startReading]);
 
@@ -339,7 +339,7 @@ const NFCReader = () => {
                         <h2 className="text-2xl font-bold text-gray-800">
                             {action === 'borrow' ? '借りる' : '返す'}
                         </h2>
-                        <p className="text-gray-600 mt-2">学生証をリーダーに2秒程度かざしてください</p>
+                        <p className="text-gray-600 mt-2">学生証をリーダーにかざしてください</p>
                         <p className="text-sm text-gray-500 mt-1">
                             {isReading ? (
                                 <>

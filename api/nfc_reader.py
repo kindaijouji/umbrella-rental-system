@@ -79,7 +79,7 @@ class NFCReader:
         """NFCリーダースレッドの実行関数"""
         # 再試行の設定
         max_retries = 5
-        retry_delay = 1  # 1秒
+        retry_delay = 3  # 3秒
         retry_count = 0
         
         # NFCリーダー初期化（リトライループ）
@@ -90,7 +90,7 @@ class NFCReader:
                 if retry_count > 0:
                     self._emit_nfc_status_update(
                         'reader_retrying', 
-                        f'NFCリーダーの初期化に失敗しました。再試行中 ({retry_count}/{max_retries})...'
+                        f'NFCリーダーの初期化に失敗しました。カードを離してください。再試行中 ({retry_count}/{max_retries})...'
                     )
                 
                 # NFCリーダーの初期化を試みる
@@ -121,29 +121,26 @@ class NFCReader:
         
         while self.reader_active:
             try:
-                # NFCタグの読み取り待機
-                tag = clf.connect(rdwr={'on-connect': self._connected_callback})
+                # NFCタグの読み取り待機 - タイムアウトとパラメータを追加
+                tag = clf.connect(rdwr={
+                    'on-connect': self._connected_callback,
+                    'interval': 0.1,  # ポーリング間隔を短く設定
+                    'iterations': 1,  # 1回だけ試行して次に進む
+                    'beep-on-connect': False
+                }, timeout=0.5)  # 0.5秒のタイムアウトを設定
                 
-                if tag and self.last_tag_read:
-                    # WebSocketでクライアントにリアルタイム通知
-                    self.socketio.emit('nfc_tag_read', self.last_tag_read)
-                    
-                    # タグ検出後、自動的にリーダーを停止し、処理キューに追加
-                    self.reader_active = False
-                    self.processing_queue.put(self.last_tag_read)
-                    
-                    # 学籍番号が取得できた場合としてない場合のメッセージを分ける
-                    student_id = self.last_tag_read.get('student_id')
-                    if student_id and student_id != "unknown":
-                        message = f'学生証を検出しました。学籍番号: {student_id}。処理を開始します。'
-                    else:
-                        message = 'カードを検出しましたが学籍番号の読み取りに失敗しました。処理を続行します。'
-                    
-                    self._emit_nfc_status_update('tag_detected', message)
-                    
-                    # 処理スレッドが実行中でなければ開始
-                    self._start_processing_thread()
+                # _connected_callback内で処理が開始された場合は
+                # reader_activeがFalseになっているので、ループを抜ける
+                if not self.reader_active:
                     break
+                
+                # カードが検出されなかった場合は再試行
+                if not tag:
+                    continue
+                
+            except nfc.clf.TimeoutError:
+                # タイムアウトは通常の動作なのでエラーとして扱わない
+                continue
                 
             except Exception as e:
                 print(f"NFCリーダーエラー: {e}")
@@ -167,7 +164,43 @@ class NFCReader:
                 'student_id': student_id
             }
             
-            return True
+            # 学籍番号が取得できたかチェック
+            if student_id and student_id != "unknown":
+                # WebSocketでクライアントにリアルタイム通知
+                self.socketio.emit('nfc_tag_read', self.last_tag_read)
+                
+                # 学籍番号が取得できた場合のメッセージ
+                message = f'学生証を検出しました。学籍番号: {student_id}。処理を開始します。'
+                self._emit_nfc_status_update('tag_detected', message)
+                
+                # 処理キューに追加
+                self.processing_queue.put(self.last_tag_read)
+                
+                # リーダーを停止して処理スレッドを開始
+                self.reader_active = False
+                self._start_processing_thread()
+                
+                # Trueを返して接続処理を終了
+                return True
+            else:
+                # 学籍番号が取得できなかった場合も一旦処理を進める
+                # WebSocketでクライアントにリアルタイム通知
+                self.socketio.emit('nfc_tag_read', self.last_tag_read)
+                
+                # 学籍番号が取得できなかった場合のメッセージ
+                message = 'カードを検出しましたが学籍番号の読み取りに失敗しました。処理を続行します。'
+                self._emit_nfc_status_update('tag_detected', message)
+                
+                # 処理キューに追加
+                self.processing_queue.put(self.last_tag_read)
+                
+                # リーダーを停止して処理スレッドを開始
+                self.reader_active = False
+                self._start_processing_thread()
+                
+                # Trueを返して接続処理を終了
+                return True
+                
         except Exception as e:
             print(f"タグ読み取りエラー: {e}")
             return False
